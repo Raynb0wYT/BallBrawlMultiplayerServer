@@ -190,13 +190,6 @@ io.on('connection', (socket) => {
             }
           }
         }
-        // --- REMOVE OR DELAY THIS ---
-        // const otherPlayerId = Object.keys(rooms[room].players).find(id => id !== socket.id);
-        // if (otherPlayerId) {
-        //   io.to(otherPlayerId).emit('opponent-left');
-        // }
-        // ----------------------------
-
         // Remove player from room entirely
         delete rooms[room].players[socket.id];
         delete rooms[room].scores[socket.id];
@@ -204,8 +197,7 @@ io.on('connection', (socket) => {
         if (Object.keys(rooms[room].players).length === 0) {
           delete rooms[room];
         }
-        // Tell the disconnecting client to redirect
-        socket.emit('force-disconnect');
+        // Do NOT emit 'force-disconnect' here!
       }
     }
   });
