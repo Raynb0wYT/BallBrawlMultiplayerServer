@@ -162,13 +162,16 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    if (waitingPlayer === socket) waitingPlayer = null;
     for (let room in rooms) {
       if (rooms[room].players[socket.id]) {
         const otherPlayerId = Object.keys(rooms[room].players).find(id => id !== socket.id);
+        // Notify the other player they win
         if (otherPlayerId) {
           io.to(otherPlayerId).emit('opponent-left');
         }
+        // Notify the disconnecting player
+        socket.emit('self-disconnected');
+        // Remove player from room
         delete rooms[room].players[socket.id];
         delete rooms[room].scores[socket.id];
         if (Object.keys(rooms[room].players).length === 0) {
