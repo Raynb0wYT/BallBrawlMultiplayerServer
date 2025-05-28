@@ -118,10 +118,7 @@ io.on('connection', (socket) => {
         if (Math.sqrt(dx*dx + dy*dy) < 25) { // 15 (player) + 10 (red)
           // Score and respawn red ball
           rooms[room].scores[socket.id]++;
-          rooms[room].redBalls[i] = {
-            x: Math.random() * 560 + 20,
-            y: Math.random() * 360 + 20
-          };
+          rooms[room].redBalls[i] = spawnRedBall();
         }
       }
 
