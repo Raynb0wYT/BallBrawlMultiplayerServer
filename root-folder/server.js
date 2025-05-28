@@ -6,11 +6,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { 
-    origin: [
-      "http://127.0.0.1:3000", 
-      "https://game-2077d.web.app", 
-      "https://game-2077d.firebaseapp.com",
-      ],
+    origin: "http://127.0.0.1:3000", 
     methods: ["GET", "POST"]
   }
 });
@@ -102,7 +98,8 @@ io.on('connection', (socket) => {
         redBalls: Array.from({length: 10}, () => spawnRedBall()),
         scores: {},
         usernames: {},
-        persistentMap: {} // <-- Add this
+        persistentMap: {}, // <-- Add this
+        persistentColorMap: {} // <-- Add this
       };
     }
 
@@ -121,7 +118,15 @@ io.on('connection', (socket) => {
       rooms[room].persistentMap[persistentId] = socket.id;
     } else {
       // Assign color: first is blue, second is green
-      const color = Object.keys(rooms[room].players).length === 0 ? "blue" : "green";
+      let color;
+      if (persistentId && rooms[room].persistentColorMap[persistentId]) {
+        // Assign the previous color
+        color = rooms[room].persistentColorMap[persistentId];
+      } else {
+        // Assign color as usual
+        color = Object.keys(rooms[room].players).length === 0 ? "blue" : "green";
+        if (persistentId) rooms[room].persistentColorMap[persistentId] = color;
+      }
       rooms[room].players[socket.id] = { 
         x: color === "blue" ? 100 : 500, 
         y: 200, 
