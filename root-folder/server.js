@@ -12,8 +12,26 @@ const io = new Server(server, {
 });
 
 let rooms = {};
+let waitingPlayer = null;
 
 io.on('connection', (socket) => {
+  // Matchmaking logic
+  socket.on('find-match', ({ username }) => {
+    if (waitingPlayer && waitingPlayer.connected) {
+      // Pair with waiting player
+      const room = `room-${waitingPlayer.id}-${socket.id}`;
+      socket.join(room);
+      waitingPlayer.join(room);
+      // Notify both players
+      io.to(room).emit('match-found', { room });
+      waitingPlayer = null;
+    } else {
+      // No one waiting, add to queue
+      waitingPlayer = socket;
+    }
+  });
+
+  // Game logic
   socket.on('join-room', ({ room, username }) => {
     socket.join(room);
     if (!rooms[room]) {
@@ -71,6 +89,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    if (waitingPlayer === socket) waitingPlayer = null;
     for (let room in rooms) {
       if (rooms[room].players[socket.id]) {
         delete rooms[room].players[socket.id];
