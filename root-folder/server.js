@@ -78,15 +78,12 @@ io.on('connection', (socket) => {
   // Matchmaking logic
   socket.on('find-match', ({ username }) => {
     if (waitingPlayer && waitingPlayer.connected) {
-      // Pair with waiting player
       const room = `room-${waitingPlayer.id}-${socket.id}`;
       socket.join(room);
       waitingPlayer.join(room);
-      // Notify both players
       io.to(room).emit('match-found', { room });
       waitingPlayer = null;
     } else {
-      // No one waiting, add to queue
       waitingPlayer = socket;
     }
   });
@@ -95,17 +92,7 @@ io.on('connection', (socket) => {
   socket.on('join-room', ({ room, username }) => {
     socket.join(room);
 
-    // If player previously existed and was disconnected, block rejoin
-    if (
-      rooms[room] &&
-      rooms[room].players &&
-      rooms[room].players[socket.id] &&
-      rooms[room].players[socket.id].disconnected
-    ) {
-      socket.emit('self-disconnected');
-      return;
-    }
-
+    // If room doesn't exist, create it
     if (!rooms[room]) {
       rooms[room] = {
         players: {},
@@ -113,6 +100,25 @@ io.on('connection', (socket) => {
         scores: {},
         usernames: {}
       };
+    }
+
+    // If the room is already in progress (has 2 players), block new IDs
+    if (
+      Object.keys(rooms[room].players).length >= 2 &&
+      !rooms[room].players[socket.id]
+    ) {
+      // This is a new socket trying to join an in-progress game (likely a refresh)
+      socket.emit('force-disconnect');
+      return;
+    }
+
+    // If player previously existed and was disconnected, block rejoin
+    if (
+      rooms[room].players[socket.id] &&
+      rooms[room].players[socket.id].disconnected
+    ) {
+      socket.emit('self-disconnected');
+      return;
     }
 
     // Assign color: first is blue, second is green
@@ -124,7 +130,7 @@ io.on('connection', (socket) => {
       name: username,
       trail: [],
       trailTick: 0,
-      disconnected: false // <-- Add this
+      disconnected: false
     };
     rooms[room].scores[socket.id] = 0;
     rooms[room].usernames[socket.id] = username;
@@ -137,65 +143,52 @@ io.on('connection', (socket) => {
   });
 
   socket.on('player-input', ({ room, input }) => {
-   // console.log("Received input:", input);
     if (rooms[room] && rooms[room].players[socket.id]) {
       let player = rooms[room].players[socket.id];
       player.trailTick = (player.trailTick || 0) + 1;
-
-      // FIX: Save old position BEFORE updating
       const oldX = player.x;
       const oldY = player.y;
-
-      // Move player
       player.x += input.dx;
       player.y += input.dy;
-
-      // Clamp to canvas
       player.x = Math.max(15, Math.min(CANVAS_WIDTH - 15, player.x));
       player.y = Math.max(15, Math.min(CANVAS_HEIGHT - 15, player.y));
-
-      // Now check if the player moved
       if (player.x !== oldX || player.y !== oldY) {
         if (!player.trail) player.trail = [];
-        // Only add a trail point every 2nd or 3rd input
         if (player.trailTick % 3 === 0) {
           player.trail.push({ x: player.x, y: player.y });
         }
       }
-
-      // Collision detection with red balls
       for (let i = 0; i < rooms[room].redBalls.length; i++) {
         const ball = rooms[room].redBalls[i];
         const dx = rooms[room].players[socket.id].x - ball.x;
         const dy = rooms[room].players[socket.id].y - ball.y;
-        if (Math.sqrt(dx*dx + dy*dy) < 25) { // 15 (player) + 10 (red)
-          // Score and respawn red ball
+        if (Math.sqrt(dx*dx + dy*dy) < 25) {
           rooms[room].scores[socket.id]++;
           rooms[room].redBalls[i] = spawnRedBall();
         }
       }
-
       io.to(room).emit('state-update', rooms[room]);
-     // console.log("Emitting state-update. Player trail:", rooms[room].players[socket.id].trail); // <-- Add this line
     }
   });
 
   socket.on('disconnect', () => {
     for (let room in rooms) {
       if (rooms[room].players[socket.id]) {
-        rooms[room].players[socket.id].disconnected = true; // Mark as disconnected
+        // Notify the other player
         const otherPlayerId = Object.keys(rooms[room].players).find(id => id !== socket.id);
         if (otherPlayerId) {
           io.to(otherPlayerId).emit('opponent-left');
         }
-        socket.emit('self-disconnected');
-        socket.emit('force-disconnect'); // Add this line
-        // Optionally: remove player from room entirely if you want to free the slot
-        // delete rooms[room].players[socket.id];
-        // delete rooms[room].scores[socket.id];
+        // Remove player from room entirely
+        delete rooms[room].players[socket.id];
+        delete rooms[room].scores[socket.id];
+        delete rooms[room].usernames[socket.id];
+        // If room is empty, delete it
         if (Object.keys(rooms[room].players).length === 0) {
           delete rooms[room];
         }
+        // Tell the disconnecting client to redirect
+        socket.emit('force-disconnect');
       }
     }
   });
