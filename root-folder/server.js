@@ -170,6 +170,14 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('player-left', ({ room }) => {
+    const otherPlayerId = Object.keys(rooms[room].players).find(id => id !== socket.id);
+    if (otherPlayerId) {
+      io.to(otherPlayerId).emit('opponent-left');
+    }
+    // Remove player from room, etc.
+  });
+
   socket.on('disconnect', () => {
     for (let room in rooms) {
       if (rooms[room].players[socket.id]) {
@@ -182,16 +190,17 @@ io.on('connection', (socket) => {
             }
           }
         }
-        // Notify the other player
-        const otherPlayerId = Object.keys(rooms[room].players).find(id => id !== socket.id);
-        if (otherPlayerId) {
-          io.to(otherPlayerId).emit('opponent-left');
-        }
+        // --- REMOVE OR DELAY THIS ---
+        // const otherPlayerId = Object.keys(rooms[room].players).find(id => id !== socket.id);
+        // if (otherPlayerId) {
+        //   io.to(otherPlayerId).emit('opponent-left');
+        // }
+        // ----------------------------
+
         // Remove player from room entirely
         delete rooms[room].players[socket.id];
         delete rooms[room].scores[socket.id];
         delete rooms[room].usernames[socket.id];
-        // If room is empty, delete it
         if (Object.keys(rooms[room].players).length === 0) {
           delete rooms[room];
         }
