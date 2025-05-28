@@ -60,6 +60,20 @@ setInterval(() => {
   }
 }, 30);
 
+// Add this interval at the top-level, after your setInterval for red balls:
+setInterval(() => {
+  for (const roomName in rooms) {
+    const room = rooms[roomName];
+    if (!room.players) continue;
+    for (const id in room.players) {
+      let player = room.players[id];
+      if (player.trail && player.trail.length > 0) {
+        player.trail.shift(); // Always fade the trail
+      }
+    }
+  }
+}, 30);
+
 io.on('connection', (socket) => {
   // Matchmaking logic
   socket.on('find-match', ({ username }) => {
@@ -120,9 +134,15 @@ io.on('connection', (socket) => {
 
       // --- Add this block to update the trail ---
       let player = rooms[room].players[socket.id];
-      if (!player.trail) player.trail = [];
-      player.trail.push({ x: player.x, y: player.y });
-      if (player.trail.length > 40) player.trail.shift();
+      const oldX = player.x;
+      const oldY = player.y;
+      player.x = Math.max(15, Math.min(CANVAS_WIDTH - 15, player.x));
+      player.y = Math.max(15, Math.min(CANVAS_HEIGHT - 15, player.y));
+      if (player.x !== oldX || player.y !== oldY) {
+        if (!player.trail) player.trail = [];
+        player.trail.push({ x: player.x, y: player.y });
+        // No need to shift here, since the interval above handles fading
+      }
       // ------------------------------------------
 
       // Collision detection with red balls
