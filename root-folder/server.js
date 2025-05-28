@@ -67,8 +67,8 @@ setInterval(() => {
     if (!room.players) continue;
     for (const id in room.players) {
       let player = room.players[id];
-      if (player.trail && player.trail.length > TRAIL_LENGTH) {
-        player.trail.shift(); // Only fade if longer than TRAIL_LENGTH
+      if (player.trail && player.trail.length > 0) {
+        player.trail.shift(); // Always fade, even if not moving
       }
     }
   }
