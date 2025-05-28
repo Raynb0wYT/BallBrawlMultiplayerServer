@@ -123,6 +123,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('player-input', ({ room, input }) => {
+    console.log("Received input:", input); // <--- Add this line
     if (rooms[room] && rooms[room].players[socket.id]) {
       // Move player
       rooms[room].players[socket.id].x += input.dx;
