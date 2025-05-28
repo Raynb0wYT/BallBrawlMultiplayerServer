@@ -16,7 +16,7 @@ let waitingPlayer = null;
 
 const RED_RADIUS = 5;
 const RED_SPEED = 3.5;
-const TRAIL_LENGTH = 60; // Increase this value for a longer trail
+const TRAIL_LENGTH = 30; // Increase this value for a longer trail
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 
@@ -94,8 +94,19 @@ io.on('connection', (socket) => {
   // Game logic
   socket.on('join-room', ({ room, username }) => {
     socket.join(room);
+
+    // If player previously existed and was disconnected, block rejoin
+    if (
+      rooms[room] &&
+      rooms[room].players &&
+      rooms[room].players[socket.id] &&
+      rooms[room].players[socket.id].disconnected
+    ) {
+      socket.emit('self-disconnected');
+      return;
+    }
+
     if (!rooms[room]) {
-      // First player: create room state
       rooms[room] = {
         players: {},
         redBalls: Array.from({length: 10}, () => spawnRedBall()),
@@ -103,6 +114,7 @@ io.on('connection', (socket) => {
         usernames: {}
       };
     }
+
     // Assign color: first is blue, second is green
     const color = Object.keys(rooms[room].players).length === 0 ? "blue" : "green";
     rooms[room].players[socket.id] = { 
@@ -111,7 +123,8 @@ io.on('connection', (socket) => {
       color, 
       name: username,
       trail: [],
-      trailTick: 0 // <-- Add this
+      trailTick: 0,
+      disconnected: false // <-- Add this
     };
     rooms[room].scores[socket.id] = 0;
     rooms[room].usernames[socket.id] = username;
@@ -130,6 +143,7 @@ io.on('connection', (socket) => {
       player.trailTick = (player.trailTick || 0) + 1;
 
       // FIX: Save old position BEFORE updating
+      const oldX = player.x;
       const oldY = player.y;
 
       // Move player
@@ -143,8 +157,10 @@ io.on('connection', (socket) => {
       // Now check if the player moved
       if (player.x !== oldX || player.y !== oldY) {
         if (!player.trail) player.trail = [];
-        player.trail.push({ x: player.x, y: player.y });
-        console.log("Trail after push:", player.trail); // <-- Add this line
+        // Only add a trail point every 2nd or 3rd input
+        if (player.trailTick % 3 === 0) {
+          player.trail.push({ x: player.x, y: player.y });
+        }
       }
 
       // Collision detection with red balls
@@ -167,16 +183,15 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     for (let room in rooms) {
       if (rooms[room].players[socket.id]) {
+        rooms[room].players[socket.id].disconnected = true; // Mark as disconnected
         const otherPlayerId = Object.keys(rooms[room].players).find(id => id !== socket.id);
-        // Notify the other player they win
         if (otherPlayerId) {
           io.to(otherPlayerId).emit('opponent-left');
         }
-        // Notify the disconnecting player
         socket.emit('self-disconnected');
-        // Remove player from room
-        delete rooms[room].players[socket.id];
-        delete rooms[room].scores[socket.id];
+        // Optionally: remove player from room entirely if you want to free the slot
+        // delete rooms[room].players[socket.id];
+        // delete rooms[room].scores[socket.id];
         if (Object.keys(rooms[room].players).length === 0) {
           delete rooms[room];
         }
