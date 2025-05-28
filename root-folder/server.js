@@ -189,6 +189,7 @@ io.on('connection', (socket) => {
           io.to(otherPlayerId).emit('opponent-left');
         }
         socket.emit('self-disconnected');
+        socket.emit('force-disconnect'); // Add this line
         // Optionally: remove player from room entirely if you want to free the slot
         // delete rooms[room].players[socket.id];
         // delete rooms[room].scores[socket.id];
