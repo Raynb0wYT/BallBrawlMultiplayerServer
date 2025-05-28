@@ -17,13 +17,15 @@ let waitingPlayer = null;
 const RED_RADIUS = 5;
 const RED_SPEED = 3.5;
 const TRAIL_LENGTH = 30;
+const CANVAS_WIDTH = 800;
+const CANVAS_HEIGHT = 600;
 
 // Helper to initialize a red ball with trail
 function spawnRedBall() {
   let angle = Math.random() * 2 * Math.PI;
   return {
-    x: Math.random() * (600 - 2 * RED_RADIUS) + RED_RADIUS,
-    y: Math.random() * (400 - 2 * RED_RADIUS) + RED_RADIUS,
+    x: Math.random() * (CANVAS_WIDTH - 2 * RED_RADIUS) + RED_RADIUS,
+    y: Math.random() * (CANVAS_HEIGHT - 2 * RED_RADIUS) + RED_RADIUS,
     dx: Math.cos(angle) * RED_SPEED,
     dy: Math.sin(angle) * RED_SPEED,
     trail: []
@@ -40,13 +42,13 @@ setInterval(() => {
       red.x += red.dx;
       red.y += red.dy;
       // Bounce off walls
-      if (red.x <= RED_RADIUS || red.x >= 600 - RED_RADIUS) {
+      if (red.x <= RED_RADIUS || red.x >= CANVAS_WIDTH - RED_RADIUS) {
         red.dx *= -1;
-        red.x = Math.max(RED_RADIUS, Math.min(red.x, 600 - RED_RADIUS));
+        red.x = Math.max(RED_RADIUS, Math.min(red.x, CANVAS_WIDTH - RED_RADIUS));
       }
-      if (red.y <= RED_RADIUS || red.y >= 400 - RED_RADIUS) {
+      if (red.y <= RED_RADIUS || red.y >= CANVAS_HEIGHT - RED_RADIUS) {
         red.dy *= -1;
-        red.y = Math.max(RED_RADIUS, Math.min(red.y, 400 - RED_RADIUS));
+        red.y = Math.max(RED_RADIUS, Math.min(red.y, CANVAS_HEIGHT - RED_RADIUS));
       }
       // Trails
       if (!red.trail) red.trail = [];
@@ -107,8 +109,8 @@ io.on('connection', (socket) => {
       rooms[room].players[socket.id].y += input.dy;
 
       // Clamp to canvas
-      rooms[room].players[socket.id].x = Math.max(15, Math.min(585, rooms[room].players[socket.id].x));
-      rooms[room].players[socket.id].y = Math.max(15, Math.min(385, rooms[room].players[socket.id].y));
+      rooms[room].players[socket.id].x = Math.max(15, Math.min(CANVAS_WIDTH - 15, rooms[room].players[socket.id].x));
+      rooms[room].players[socket.id].y = Math.max(15, Math.min(CANVAS_HEIGHT - 15, rooms[room].players[socket.id].y));
 
       // Collision detection with red balls
       for (let i = 0; i < rooms[room].redBalls.length; i++) {
@@ -130,6 +132,10 @@ io.on('connection', (socket) => {
     if (waitingPlayer === socket) waitingPlayer = null;
     for (let room in rooms) {
       if (rooms[room].players[socket.id]) {
+        const otherPlayerId = Object.keys(rooms[room].players).find(id => id !== socket.id);
+        if (otherPlayerId) {
+          io.to(otherPlayerId).emit('opponent-left');
+        }
         delete rooms[room].players[socket.id];
         delete rooms[room].scores[socket.id];
         if (Object.keys(rooms[room].players).length === 0) {
