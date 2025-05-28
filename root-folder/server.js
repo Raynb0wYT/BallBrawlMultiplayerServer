@@ -123,7 +123,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('player-input', ({ room, input }) => {
-    console.log("Received input:", input);
+   // console.log("Received input:", input);
     if (rooms[room] && rooms[room].players[socket.id]) {
       let player = rooms[room].players[socket.id];
 
@@ -143,6 +143,7 @@ io.on('connection', (socket) => {
       if (player.x !== oldX || player.y !== oldY) {
         if (!player.trail) player.trail = [];
         player.trail.push({ x: player.x, y: player.y });
+        console.log("Trail after push:", player.trail); // <-- Add this line
       }
 
       // Collision detection with red balls
@@ -158,6 +159,7 @@ io.on('connection', (socket) => {
       }
 
       io.to(room).emit('state-update', rooms[room]);
+     // console.log("Emitting state-update. Player trail:", rooms[room].players[socket.id].trail); // <-- Add this line
     }
   });
 
