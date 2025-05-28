@@ -123,28 +123,27 @@ io.on('connection', (socket) => {
   });
 
   socket.on('player-input', ({ room, input }) => {
-    console.log("Received input:", input); // <--- Add this line
+    console.log("Received input:", input);
     if (rooms[room] && rooms[room].players[socket.id]) {
-      // Move player
-      rooms[room].players[socket.id].x += input.dx;
-      rooms[room].players[socket.id].y += input.dy;
-
-      // Clamp to canvas
-      rooms[room].players[socket.id].x = Math.max(15, Math.min(CANVAS_WIDTH - 15, rooms[room].players[socket.id].x));
-      rooms[room].players[socket.id].y = Math.max(15, Math.min(CANVAS_HEIGHT - 15, rooms[room].players[socket.id].y));
-
-      // --- Add this block to update the trail ---
       let player = rooms[room].players[socket.id];
+
+      // FIX: Save old position BEFORE updating
       const oldX = player.x;
       const oldY = player.y;
+
+      // Move player
+      player.x += input.dx;
+      player.y += input.dy;
+
+      // Clamp to canvas
       player.x = Math.max(15, Math.min(CANVAS_WIDTH - 15, player.x));
       player.y = Math.max(15, Math.min(CANVAS_HEIGHT - 15, player.y));
+
+      // Now check if the player moved
       if (player.x !== oldX || player.y !== oldY) {
         if (!player.trail) player.trail = [];
         player.trail.push({ x: player.x, y: player.y });
-        // No need to shift here, since the interval above handles fading
       }
-      // ------------------------------------------
 
       // Collision detection with red balls
       for (let i = 0; i < rooms[room].redBalls.length; i++) {
