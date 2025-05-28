@@ -91,7 +91,13 @@ io.on('connection', (socket) => {
     }
     // Assign color: first is blue, second is green
     const color = Object.keys(rooms[room].players).length === 0 ? "blue" : "green";
-    rooms[room].players[socket.id] = { x: color === "blue" ? 100 : 500, y: 200, color, name: username };
+    rooms[room].players[socket.id] = { 
+      x: color === "blue" ? 100 : 500, 
+      y: 200, 
+      color, 
+      name: username,
+      trail: [] // <-- Add this when creating a player
+    };
     rooms[room].scores[socket.id] = 0;
     rooms[room].usernames[socket.id] = username;
     socket.emit('player-info', { id: socket.id, color });
@@ -111,6 +117,13 @@ io.on('connection', (socket) => {
       // Clamp to canvas
       rooms[room].players[socket.id].x = Math.max(15, Math.min(CANVAS_WIDTH - 15, rooms[room].players[socket.id].x));
       rooms[room].players[socket.id].y = Math.max(15, Math.min(CANVAS_HEIGHT - 15, rooms[room].players[socket.id].y));
+
+      // --- Add this block to update the trail ---
+      let player = rooms[room].players[socket.id];
+      if (!player.trail) player.trail = [];
+      player.trail.push({ x: player.x, y: player.y });
+      if (player.trail.length > 40) player.trail.shift();
+      // ------------------------------------------
 
       // Collision detection with red balls
       for (let i = 0; i < rooms[room].redBalls.length; i++) {
