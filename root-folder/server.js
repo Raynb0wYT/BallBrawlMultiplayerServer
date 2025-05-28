@@ -14,6 +14,50 @@ const io = new Server(server, {
 let rooms = {};
 let waitingPlayer = null;
 
+const RED_RADIUS = 5;
+const RED_SPEED = 3.5;
+const TRAIL_LENGTH = 30;
+
+// Helper to initialize a red ball with trail
+function spawnRedBall() {
+  let angle = Math.random() * 2 * Math.PI;
+  return {
+    x: Math.random() * (600 - 2 * RED_RADIUS) + RED_RADIUS,
+    y: Math.random() * (400 - 2 * RED_RADIUS) + RED_RADIUS,
+    dx: Math.cos(angle) * RED_SPEED,
+    dy: Math.sin(angle) * RED_SPEED,
+    trail: []
+  };
+}
+
+// Update red balls every 30ms
+setInterval(() => {
+  for (const roomName in rooms) {
+    const room = rooms[roomName];
+    if (!room.redBalls) continue;
+    for (const red of room.redBalls) {
+      // Move
+      red.x += red.dx;
+      red.y += red.dy;
+      // Bounce off walls
+      if (red.x <= RED_RADIUS || red.x >= 600 - RED_RADIUS) {
+        red.dx *= -1;
+        red.x = Math.max(RED_RADIUS, Math.min(red.x, 600 - RED_RADIUS));
+      }
+      if (red.y <= RED_RADIUS || red.y >= 400 - RED_RADIUS) {
+        red.dy *= -1;
+        red.y = Math.max(RED_RADIUS, Math.min(red.y, 400 - RED_RADIUS));
+      }
+      // Trails
+      if (!red.trail) red.trail = [];
+      red.trail.push({ x: red.x, y: red.y });
+      if (red.trail.length > TRAIL_LENGTH) red.trail.shift();
+    }
+    // Broadcast new state
+    io.to(roomName).emit('state-update', room);
+  }
+}, 30);
+
 io.on('connection', (socket) => {
   // Matchmaking logic
   socket.on('find-match', ({ username }) => {
@@ -38,10 +82,7 @@ io.on('connection', (socket) => {
       // First player: create room state
       rooms[room] = {
         players: {},
-        redBalls: Array.from({length: 10}, () => ({
-          x: Math.random() * 560 + 20,
-          y: Math.random() * 360 + 20
-        })),
+        redBalls: Array.from({length: 10}, () => spawnRedBall()),
         scores: {},
         usernames: {}
       };
