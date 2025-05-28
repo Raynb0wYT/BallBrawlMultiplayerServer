@@ -16,7 +16,7 @@ let waitingPlayer = null;
 
 const RED_RADIUS = 5;
 const RED_SPEED = 3.5;
-const TRAIL_LENGTH = 60; // Increase this value for a longer trail
+const TRAIL_LENGTH = 30; // Increase this value for a longer trail
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 
@@ -110,7 +110,8 @@ io.on('connection', (socket) => {
       y: 200, 
       color, 
       name: username,
-      trail: [] // <-- Add this when creating a player
+      trail: [],
+      trailTick: 0 // <-- Add this
     };
     rooms[room].scores[socket.id] = 0;
     rooms[room].usernames[socket.id] = username;
@@ -126,6 +127,7 @@ io.on('connection', (socket) => {
    // console.log("Received input:", input);
     if (rooms[room] && rooms[room].players[socket.id]) {
       let player = rooms[room].players[socket.id];
+      player.trailTick = (player.trailTick || 0) + 1;
 
       // FIX: Save old position BEFORE updating
       const oldX = player.x;
@@ -142,8 +144,10 @@ io.on('connection', (socket) => {
       // Now check if the player moved
       if (player.x !== oldX || player.y !== oldY) {
         if (!player.trail) player.trail = [];
-        player.trail.push({ x: player.x, y: player.y });
-        console.log("Trail after push:", player.trail); // <-- Add this line
+        // Only add a trail point every 2nd or 3rd input
+        if (player.trailTick % 3 === 0) {
+          player.trail.push({ x: player.x, y: player.y });
+        }
       }
 
       // Collision detection with red balls
