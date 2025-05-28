@@ -89,52 +89,51 @@ io.on('connection', (socket) => {
   });
 
   // Game logic
-  socket.on('join-room', ({ room, username }) => {
+  socket.on('join-room', ({ room, username, persistentId }) => {
     socket.join(room);
 
-    // If room doesn't exist, create it
     if (!rooms[room]) {
       rooms[room] = {
         players: {},
         redBalls: Array.from({length: 10}, () => spawnRedBall()),
         scores: {},
-        usernames: {}
+        usernames: {},
+        persistentMap: {} // <-- Add this
       };
     }
 
-    // If the room is already in progress (has 2 players), block new IDs
-    if (
-      Object.keys(rooms[room].players).length >= 2 &&
-      !rooms[room].players[socket.id]
-    ) {
-      // This is a new socket trying to join an in-progress game (likely a refresh)
-      socket.emit('force-disconnect');
-      return;
+    // If this persistentId already exists, transfer state to new socket
+    if (persistentId && rooms[room].persistentMap && rooms[room].persistentMap[persistentId]) {
+      const oldSocketId = rooms[room].persistentMap[persistentId];
+      if (rooms[room].players[oldSocketId]) {
+        // Transfer player state to new socket
+        rooms[room].players[socket.id] = rooms[room].players[oldSocketId];
+        rooms[room].scores[socket.id] = rooms[room].scores[oldSocketId];
+        rooms[room].usernames[socket.id] = rooms[room].usernames[oldSocketId];
+        delete rooms[room].players[oldSocketId];
+        delete rooms[room].scores[oldSocketId];
+        delete rooms[room].usernames[oldSocketId];
+      }
+      rooms[room].persistentMap[persistentId] = socket.id;
+    } else {
+      // Assign color: first is blue, second is green
+      const color = Object.keys(rooms[room].players).length === 0 ? "blue" : "green";
+      rooms[room].players[socket.id] = { 
+        x: color === "blue" ? 100 : 500, 
+        y: 200, 
+        color, 
+        name: username,
+        trail: [],
+        trailTick: 0,
+        disconnected: false
+      };
+      rooms[room].scores[socket.id] = 0;
+      rooms[room].usernames[socket.id] = username;
+      if (!rooms[room].persistentMap) rooms[room].persistentMap = {};
+      rooms[room].persistentMap[persistentId] = socket.id;
     }
 
-    // If player previously existed and was disconnected, block rejoin
-    if (
-      rooms[room].players[socket.id] &&
-      rooms[room].players[socket.id].disconnected
-    ) {
-      socket.emit('self-disconnected');
-      return;
-    }
-
-    // Assign color: first is blue, second is green
-    const color = Object.keys(rooms[room].players).length === 0 ? "blue" : "green";
-    rooms[room].players[socket.id] = { 
-      x: color === "blue" ? 100 : 500, 
-      y: 200, 
-      color, 
-      name: username,
-      trail: [],
-      trailTick: 0,
-      disconnected: false
-    };
-    rooms[room].scores[socket.id] = 0;
-    rooms[room].usernames[socket.id] = username;
-    socket.emit('player-info', { id: socket.id, color });
+    socket.emit('player-info', { id: socket.id, color: rooms[room].players[socket.id].color });
 
     // If two players, start the game
     if (Object.keys(rooms[room].players).length === 2) {
@@ -174,6 +173,15 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     for (let room in rooms) {
       if (rooms[room].players[socket.id]) {
+        // Remove persistentId mapping
+        if (rooms[room].persistentMap) {
+          for (const pid in rooms[room].persistentMap) {
+            if (rooms[room].persistentMap[pid] === socket.id) {
+              delete rooms[room].persistentMap[pid];
+              break;
+            }
+          }
+        }
         // Notify the other player
         const otherPlayerId = Object.keys(rooms[room].players).find(id => id !== socket.id);
         if (otherPlayerId) {
