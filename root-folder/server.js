@@ -16,7 +16,7 @@ let waitingPlayer = null;
 
 const RED_RADIUS = 5;
 const RED_SPEED = 3.5;
-const TRAIL_LENGTH = 30;
+const TRAIL_LENGTH = 60; // Increase this value for a longer trail
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 
@@ -67,8 +67,8 @@ setInterval(() => {
     if (!room.players) continue;
     for (const id in room.players) {
       let player = room.players[id];
-      if (player.trail && player.trail.length > 0) {
-        player.trail.shift(); // Always fade the trail, even if not moving
+      if (player.trail && player.trail.length > TRAIL_LENGTH) {
+        player.trail.shift(); // Only fade if longer than TRAIL_LENGTH
       }
     }
   }
