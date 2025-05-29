@@ -7,8 +7,9 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: { 
     origin: ["http://127.0.0.1:3000",
-             "https://game-2077d.firebaseapp.com",
-             "https://game-2077d.web.app"],
+             "https://game-2077d.web.app",
+             "https://game-2077d.firebaseapp.com"
+     ], 
     methods: ["GET", "POST"]
   }
 });
