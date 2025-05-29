@@ -16,6 +16,7 @@ const io = new Server(server, {
 
 let rooms = {};
 let waitingPlayer = null;
+let onlineCount = 0;
 
 const RED_RADIUS = 5;
 const RED_SPEED = 3.5;
@@ -78,6 +79,9 @@ setInterval(() => {
 }, 30);
 
 io.on('connection', (socket) => {
+  onlineCount++;
+  io.emit('online-count', onlineCount);
+
   // Matchmaking logic
   socket.on('find-match', ({ username }) => {
     if (waitingPlayer && waitingPlayer.connected) {
@@ -191,6 +195,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    onlineCount = Math.max(onlineCount - 1, 0);
+    io.emit('online-count', onlineCount);
+
     for (let room in rooms) {
       if (rooms[room].players[socket.id]) {
         // Remove persistentId mapping
